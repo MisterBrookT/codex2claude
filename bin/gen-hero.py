@@ -4,13 +4,16 @@ import os, sys, json, base64, urllib.request
 
 KEY = os.environ["OPENROUTER_API_KEY"]
 PROMPT = (
-    "A minimal flat editorial illustration on a warm paper-ink background (#F4EEE2). "
-    "Two simple terminal windows side by side: the left one tinted neutral charcoal, "
-    "the right one accented with persimmon orange (#F25C05). A single bold persimmon arrow "
-    "flows from the left terminal into the right one, carrying a small stylized stack of "
-    "chat-bubble lines (a conversation transcript) along the arrow. Calm, intentional, "
-    "hand-crafted tech aesthetic, lots of negative space, thin ink strokes, no text, "
-    "no logos, no emoji. 16:9 composition."
+    "A minimal flat editorial illustration on a warm paper-ink background (#F4EEE2), "
+    "tight composition that fills the frame with little empty margin. "
+    "Two simple terminal windows side by side, large and centered. The left window is "
+    "tinted neutral charcoal and clearly labeled 'Codex' in small clean lettering on its "
+    "title bar. The right window is accented with persimmon orange (#F25C05) and clearly "
+    "labeled 'Claude' on its title bar. A single bold persimmon arrow flows from the left "
+    "(Codex) terminal into the right (Claude) one, carrying a small stylized stack of "
+    "chat-bubble lines (a conversation transcript) along the arrow. Only the two words "
+    "'Codex' and 'Claude' appear as text; no other text, no logos, no emoji. Calm, "
+    "intentional, hand-crafted tech aesthetic, thin ink strokes. 16:9 composition."
 )
 
 def call(model):
