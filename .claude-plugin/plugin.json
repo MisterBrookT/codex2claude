@@ -1,0 +1,8 @@
+{
+  "name": "codex2claude",
+  "description": "Import a Codex session into Claude Code and resume into it. The reverse of Codex's import-from-Claude.",
+  "version": "0.1.0",
+  "author": { "name": "Bubu", "url": "https://doabit.dev" },
+  "homepage": "https://github.com/MisterBrookT/codex2claude",
+  "license": "MIT"
+}
