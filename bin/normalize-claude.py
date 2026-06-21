@@ -24,6 +24,54 @@ for line in open(a.path):
     if line:
         rows.append(json.loads(line))
 
+# 0. Codex/OpenAI content tags leak through transession (e.g. tool_result content
+#    blocks tagged {"type":"input_text"}). The Anthropic API rejects them on the
+#    next turn — it only accepts text/image/document/... So rewrite every content
+#    block, recursing into nested tool_result content.
+TAG_MAP = {"input_text": "text", "output_text": "text", "summary_text": "text"}
+
+def image_source(url):
+    """Map a Codex image ref to an Anthropic image source. data: URLs become base64
+    sources (Anthropic rejects data: URLs via the url source); http(s) stays a url;
+    anything else (local path) is unfetchable, so drop to an empty base64 stub."""
+    if isinstance(url, str) and url.startswith("data:") and ";base64," in url:
+        head, data = url.split(";base64,", 1)
+        media_type = head[len("data:"):] or "image/png"
+        return {"type": "base64", "media_type": media_type, "data": data}
+    if isinstance(url, str) and url.startswith(("http://", "https://")):
+        return {"type": "url", "url": url}
+    return None  # unfetchable (local path / missing) -> caller drops to text
+
+def deep_fix(node):
+    """Recursively rewrite Codex content tags anywhere in the record — message
+    content, nested tool_result content, and the toolUseResult mirror field."""
+    if isinstance(node, list):
+        return [deep_fix(x) for x in node]
+    if not isinstance(node, dict):
+        return node
+    t = node.get("type")
+    if t in TAG_MAP:
+        node["type"] = TAG_MAP[t]
+    elif t in ("input_image", "output_image"):
+        url = node.get("image_url") or node.get("url")
+        if isinstance(url, dict):
+            url = url.get("url")
+        src = image_source(url)
+        node.clear()
+        if src is None:
+            node["type"] = "text"
+            node["text"] = "[image omitted from imported Codex session]"
+        else:
+            node["type"] = "image"
+            node["source"] = src
+        return node
+    for k, v in list(node.items()):
+        node[k] = deep_fix(v)
+    return node
+
+for r in rows:
+    deep_fix(r)
+
 # 1. drop non-node trailing records (e.g. {"type":"mode"}) — they have no uuid and
 #    show up as phantom roots / break leaf resolution.
 rows = [r for r in rows if r.get("type") in ("user", "assistant", "system")]
