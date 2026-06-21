@@ -19,16 +19,21 @@ command -v transession >/dev/null || {
 LEDGER="$HOME/.claude/codex-import-ledger.tsv"   # codex_sid <tab> claude_sid
 SESSIONS="$HOME/.codex/sessions"
 UUID='[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 touch "$LEDGER"
 
 # import one codex session id. echoes "ok <claude_sid>" / "skip" / "fail".
 import_one() {
-  local sid="$1" existing out csid
+  local sid="$1" existing out csid path
   existing=$(awk -F'\t' -v s="$sid" '$1==s{print $2; exit}' "$LEDGER")
   if [[ -n "$existing" ]]; then echo "skip $existing"; return 0; fi
   out=$(transession --from codex --to claude "$sid" --no-open 2>&1) || { echo "fail"; return 1; }
   csid=$(echo "$out" | grep -oE "$UUID" | tail -1)
-  [[ -z "$csid" ]] && { echo "fail"; return 1; }
+  path=$(echo "$out" | grep -oE '/[^ ]*\.jsonl' | head -1)
+  [[ -z "$csid" || -z "$path" ]] && { echo "fail"; return 1; }
+  # normalize transession output into a native-faithful transcript (else it spins
+  # forever on "Loading..." in the Claude Code / Zed session viewer)
+  python3 "$SCRIPT_DIR/normalize-claude.py" "$path" >/dev/null 2>&1 || { echo "fail"; return 1; }
   printf "%s\t%s\n" "$sid" "$csid" >> "$LEDGER"
   echo "ok $csid"
 }
