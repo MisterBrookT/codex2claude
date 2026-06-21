@@ -1,12 +1,12 @@
 # codex2claude
 
-Import a Codex session into Claude Code and resume it directly with `claude --resume` after quitting.
+Import any Codex session into Claude Code — quit, then `claude --resume` to continue.
 
-把一条 Codex 会话导入 Claude Code，退出后用 `claude --resume` 直接接着聊。
+把任意 Codex 会话导入 Claude Code——退出后 `claude --resume` 接着聊。
 
-Codex natively supports `import-from-Claude`, but the reverse direction has been missing. `codex2claude` fills that gap — shipped as a Claude Code plugin, one slash command does the job.
+Codex imports from Claude; this is the missing reverse, as a one-command Claude Code plugin.
 
-Codex 原生支持 `import-from-Claude`，反方向一直缺。`codex2claude` 补上这条——做成一个 Claude Code 插件，一个 slash 命令搞定。
+Codex 能从 Claude 导入，这条补上反方向——一个命令的 Claude Code 插件。
 
 <p align="center"><img src="assets/hero.png" width="480" alt="codex2claude"></p>
 
