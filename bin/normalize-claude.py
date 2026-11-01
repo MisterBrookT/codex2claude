@@ -51,10 +51,12 @@ def deep_fix(node):
         return node
     t = node.get("type")
     if t in TAG_MAP:
-        node["type"] = TAG_MAP[t]
-        # OpenAI text parts carry extra fields (output_text: annotations, logprobs).
-        # The Anthropic API rejects any key it doesn't know ("Extra inputs are not
-        # permitted"), which breaks /compact on the imported session — keep only text.
+        node["type"] = t = TAG_MAP[t]
+    if t == "text":
+        # OpenAI text parts carry extra fields (output_text: annotations, logprobs),
+        # sometimes already retagged "text" by transession. The Anthropic API rejects
+        # any key it doesn't know ("Extra inputs are not permitted"), which breaks
+        # /compact on the imported session — keep only type and text.
         for k in list(node):
             if k not in ("type", "text"):
                 del node[k]
