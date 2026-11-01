@@ -52,6 +52,12 @@ def deep_fix(node):
     t = node.get("type")
     if t in TAG_MAP:
         node["type"] = TAG_MAP[t]
+        # OpenAI text parts carry extra fields (output_text: annotations, logprobs).
+        # The Anthropic API rejects any key it doesn't know ("Extra inputs are not
+        # permitted"), which breaks /compact on the imported session — keep only text.
+        for k in list(node):
+            if k not in ("type", "text"):
+                del node[k]
     elif t in ("input_image", "output_image"):
         url = node.get("image_url") or node.get("url")
         if isinstance(url, dict):
