@@ -22,12 +22,25 @@ UUID='[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 touch "$LEDGER"
 
-# import one codex session id. echoes "ok <claude_sid>" / "skip" / "fail".
+# a rollout's own session id: the LAST uuid in its name (resumed sessions are
+# named rollout-…-<orig>_<new>.jsonl, so the first uuid belongs to the original)
+sid_of() { basename "$1" | grep -oE "$UUID" | tail -1; }
+
+# import one codex rollout file. echoes "ok <claude_sid>" / "skip" / "fail".
+# transession gets the file path, not the id: its id lookup misses resumed
+# rollouts (<orig>_<new>) and Codex's compressed archives (.jsonl.zst).
 import_one() {
-  local sid="$1" existing out csid path
+  local sid="$1" src="$2" existing out csid path tmp=""
   existing=$(awk -F'\t' -v s="$sid" '$1==s{print $2; exit}' "$LEDGER")
   if [[ -n "$existing" ]]; then echo "skip $existing"; return 0; fi
-  out=$(transession --from codex --to claude "$sid" --no-open 2>&1) || { echo "fail"; return 1; }
+  if [[ "$src" == *.zst ]]; then
+    command -v zstd >/dev/null || { echo "fail"; return 1; }
+    tmp=$(mktemp -d)
+    zstd -dq "$src" -o "$tmp/$(basename "${src%.zst}")" || { rm -rf "$tmp"; echo "fail"; return 1; }
+    src="$tmp/$(basename "${src%.zst}")"
+  fi
+  out=$(transession --from codex --to claude "$src" --no-open 2>&1) || { [[ -n "$tmp" ]] && rm -rf "$tmp"; echo "fail"; return 1; }
+  [[ -n "$tmp" ]] && rm -rf "$tmp"
   csid=$(echo "$out" | grep -oE "$UUID" | tail -1)
   path=$(echo "$out" | grep -oE '/[^ ]*\.jsonl' | head -1)
   [[ -z "$csid" || -z "$path" ]] && { echo "fail"; return 1; }
@@ -42,7 +55,9 @@ ARG="${1:-all}"
 
 # --- single specific session ---
 if [[ "$ARG" =~ ^$UUID$ ]]; then
-  res=$(import_one "$ARG"); kind=${res%% *}; csid=${res#* }
+  f=$(find "$SESSIONS" \( -name "*$ARG.jsonl" -o -name "*$ARG.jsonl.zst" \) 2>/dev/null | head -1)
+  [[ -z "$f" ]] && { echo "no codex rollout found for $ARG under $SESSIONS"; exit 1; }
+  res=$(import_one "$ARG" "$f"); kind=${res%% *}; csid=${res#* }
   case "$kind" in
     ok)   echo "imported codex $ARG -> claude $csid"; echo; echo "NEXT: quit, then run:  claude -r $csid" ;;
     skip) echo "already imported codex $ARG"; echo "resume: claude -r $csid" ;;
@@ -56,14 +71,14 @@ fi
 
 imported=0 skipped=0 failed=0
 while IFS= read -r f; do
-  sid=$(basename "$f" | grep -oE "$UUID" | head -1)
+  sid=$(sid_of "$f")
   [[ -z "$sid" ]] && continue
-  case "$(import_one "$sid")" in
+  case "$(import_one "$sid" "$f")" in
     ok*)   imported=$((imported+1)) ;;
     skip*) skipped=$((skipped+1)) ;;
     *)     failed=$((failed+1)) ;;
   esac
-done < <(find "$SESSIONS" -name '*.jsonl' 2>/dev/null | sort)
+done < <(find "$SESSIONS" \( -name '*.jsonl' -o -name '*.jsonl.zst' \) 2>/dev/null | sort)
 
 echo "imported $imported · skipped $skipped (already) · failed $failed"
 echo
